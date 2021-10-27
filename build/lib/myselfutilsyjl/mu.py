@@ -1,4 +1,9 @@
 # 本次更新内容：
+# version: 1.0.7
+# 1、draw_result函数，绘制loss与acc时 对多分类的每一个值都绘制Acc时，图片文件保存为 acc_small.jpg。
+# 2、draw_result函数，修改了函数中的acc的值，acc=history['sparse_categorical_accuracy']修改为acc=history['acc']
+
+# version: 1.0.6
 # 1、绘制loss与acc时，添加上仅有训练集没有测试集的绘图代码，并且给出选项，是否要对多分类的每一个值都绘制Acc。
 # 2、绘制Se，Sp，+p，Acc的图
 # 3、更改所有图片为600dpi,并且给所有保存图片的函数，添加了：picture_format字段，用来设置保存图片的格式
@@ -76,7 +81,7 @@ def draw_result(history, small_class=None, picture_format=".jpg", savepath=None,
         plt.title('Training accuracy')
     plt.legend()
     if savepath is not None:
-        plt.savefig(savepath + 'acc' + picture_format, dpi=600, bbox_inches='tight')
+        plt.savefig(savepath + ('acc_small' if small_class else "acc") + picture_format , dpi=600, bbox_inches='tight')
 
     plt.figure()
     plt.xlabel("Epoch")
@@ -225,7 +230,7 @@ def de_to_one_hot_3dim(labels):
     return results
 
 
-# 将one_hot形式转化为非one_hot的形式，也即是从（seample,5)转化为(seample)，
+# 将one_hot形式转化为非one_hot的形式，也即是从（seample,5)转化为(seample,)，
 def de_to_one_hot(labels):
     if len(labels.shape) != 2:
         print('de_to_one_hot此方法仅适用于二维转一维')
