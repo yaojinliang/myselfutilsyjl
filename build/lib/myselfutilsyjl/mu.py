@@ -1,4 +1,9 @@
 # 本次更新内容：
+# version: 1.0.8
+# 2、修改draw_confusion_mat函数，用来处理不输入模型，只输入真是标签和预测标签的情况。
+# 3、修改de_to_one_hot_auto函数，支持如果此时是非onehot形式就不转变。
+
+
 # version: 1.0.7
 # 1、draw_result函数，绘制loss与acc时 对多分类的每一个值都绘制Acc时，图片文件保存为 acc_small.jpg。
 # 2、draw_result函数，修改了函数中的acc的值，acc=history['sparse_categorical_accuracy']修改为acc=history['acc']
@@ -29,6 +34,7 @@ import random
 import sys
 from myselfutilsyjl import plot_draw_metric
 import pprint
+
 
 def help():
     print('#draw_result(history, savepath)')
@@ -81,7 +87,7 @@ def draw_result(history, small_class=None, picture_format=".jpg", savepath=None,
         plt.title('Training accuracy')
     plt.legend()
     if savepath is not None:
-        plt.savefig(savepath + ('acc_small' if small_class else "acc") + picture_format , dpi=600, bbox_inches='tight')
+        plt.savefig(savepath + ('acc_small' if small_class else "acc") + picture_format, dpi=600, bbox_inches='tight')
 
     plt.figure()
     plt.xlabel("Epoch")
@@ -132,15 +138,32 @@ def plot_confusion_matrix(cm, classes, title, savepath, picture_format=".jpg", n
     plt.show()
 
 
-# 整理绘制混淆矩阵所需的数据
+# 整理绘制混淆矩阵所需的数据（当model为None时，模式即为只输入预测值和真实值，预测值输入到test_features,中）
 def draw_confusion_mat(model, test_features, test_labels, classes, savepath, picture_format=".jpg", normalize=True,
                        istwo=True):
-    try:
-        test_labels_predict = model.predict_classes(test_features)  # shape(1094,20)
-    except AttributeError:
-        temp_test_predict = model.predict(test_features)
-        test_labels_predict = np.argmax(temp_test_predict, axis=-1)  # shape(1094,20)
-    test_labels_predict = test_labels_predict.reshape((-1, 1)).astype(np.int32)  # shape(21800,1)int型,范围为(0-4)
+    """
+    Args:
+        model:              模型，如果设置成None，表示直接输入预测值和真实值
+        test_features:      数据集x，如果模型设置成None，则该值为预测值 = model(x)
+        test_labels:        数据集x对应的标签
+        classes:            类别：e.g.   classes=['N', 'S', 'V', 'F', 'Q'],
+        savepath:           存储路径
+        picture_format:     图片格式
+        normalize:          混淆矩阵中的值是百分比还是实际的值
+        istwo:              是否存储两张混淆矩阵（百分比和实际的值）
+
+    Returns:                直接输出图片，无返回值
+
+    """
+    if model == None:
+        test_labels_predict = test_features
+    else:
+        try:
+            test_labels_predict = model.predict_classes(test_features)  # shape(1094,20)
+        except AttributeError:
+            temp_test_predict = model.predict(test_features)
+            test_labels_predict = np.argmax(temp_test_predict, axis=-1)  # shape(1094,20)
+        test_labels_predict = test_labels_predict.reshape((-1, 1)).astype(np.int32)  # shape(21800,1)int型,范围为(0-4)
     test_labels_true = de_to_one_hot_auto(test_labels).reshape((-1, 1)).astype(np.int32)  # shape(21800,1)int型,范围为(0-4)
 
     # 画混淆矩阵
@@ -186,13 +209,31 @@ def calc_metrics(cm, num_class):
 
 # 绘制评价指标图
 def draw_metrics(model, test_features, test_labels, classes, savepath, picture_format=".jpg",
-                 title='Classification report', cmap='YlGnBu',print_metrics=False):
-    try:
-        test_labels_predict = model.predict_classes(test_features)  # shape(1094,20)
-    except AttributeError:
-        temp_test_predict = model.predict(test_features)
-        test_labels_predict = np.argmax(temp_test_predict, axis=-1)  # shape(1094,20)
-    test_labels_predict = test_labels_predict.reshape((-1, 1)).astype(np.int32)  # shape(21800,1)int型,范围为(0-4)
+                 title='Classification report', cmap='YlGnBu', print_metrics=False):
+    """
+    Args:
+        model:              模型，如果设置成None，表示直接输入预测值和真实值
+        test_features:      数据集x，如果模型设置成None，则该值为预测值 = model(x)
+        test_labels:        数据集x对应的标签
+        classes:            类别：e.g.   classes=['N', 'S', 'V', 'F', 'Q'],
+        savepath:           存储路径
+        picture_format:     图片格式
+        title:              图片标题
+        cmap:               颜色带
+        print_metrics:      是否打印出评价指标
+
+    Returns:                直接输出图片，无返回值
+
+    """
+    if model == None:
+        test_labels_predict = test_features
+    else:
+        try:
+            test_labels_predict = model.predict_classes(test_features)  # shape(1094,20)
+        except AttributeError:
+            temp_test_predict = model.predict(test_features)
+            test_labels_predict = np.argmax(temp_test_predict, axis=-1)  # shape(1094,20)
+        test_labels_predict = test_labels_predict.reshape((-1, 1)).astype(np.int32)  # shape(21800,1)int型,范围为(0-4)
     test_labels_true = de_to_one_hot_auto(test_labels).reshape((-1, 1)).astype(np.int32)  # shape(21800,1)int型,范围为(0-4)
     # 画混淆矩阵
     confusion_mat = confusion_matrix(test_labels_true, test_labels_predict)
@@ -247,6 +288,8 @@ def de_to_one_hot_auto(labels):
         return de_to_one_hot(labels)
     elif len(labels.shape) == 3:
         return de_to_one_hot_3dim(labels)
+    elif len(labels.shape) == 1:
+        return labels
     else:
         print("目前仅支持三维转二维或者二维转一维!")
         exit()
